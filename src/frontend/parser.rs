@@ -36,7 +36,7 @@ pub enum NodeType {
     S8Type, S16Type, S32Type, S64Type,
     F32Type, F64Type, 
     UnitType, 
-    USizeType,
+    UsizeType,
     BoolType
 }
 
@@ -247,10 +247,30 @@ impl<'c> Parser<'c> {
                 ));
             }
             TokenType::KeywordConst => {
-                todo!()
+                self.next();
+                self.expect(&[TokenType::Identifier])?;
+                let name: StringIdx = self.current.content;
+                self.next();
+                let value_type: AstNode = self.parse_type()?;
+                self.expect(&[TokenType::Equal])?;
+                self.next();
+                let value: AstNode = self.parse_expression()?;
+                return Ok(AstNode::new(
+                    NodeType::ConstDecl,
+                    Source::across(start, value.source),
+                    NodeValue::String(name),
+                    NodeChildren::Pair(value_type.into(), value.into())
+                ));
             }
             TokenType::KeywordReturn => {
-                todo!()
+                self.next();
+                let returned: AstNode = self.parse_expression()?;
+                return Ok(AstNode::new(
+                    NodeType::Return,
+                    Source::across(start, returned.source),
+                    NodeValue::None,
+                    NodeChildren::Single(returned.into())
+                ));
             }
             TokenType::KeywordContinue => {
                 self.next();
@@ -261,7 +281,12 @@ impl<'c> Parser<'c> {
                 ));
             }
             TokenType::KeywordBreak => {
-                todo!()
+                self.next();
+                return Ok(AstNode::new(
+                    NodeType::Break,
+                    start,
+                    NodeValue::None, NodeChildren::None
+                ));
             }
             TokenType::KeywordIf => {
                 todo!()
@@ -280,7 +305,49 @@ impl<'c> Parser<'c> {
     }
 
     fn parse_type(&mut self) -> Result<AstNode, ()> {
-        todo!()
+        let start: Source = self.current.source;
+        match self.current.t {
+            TokenType::Asterisk => {
+                todo!()
+            }
+            TokenType::KeywordU8 | TokenType::KeywordU16 |
+            TokenType::KeywordU32 | TokenType::KeywordU64 |
+            TokenType::KeywordS8 | TokenType::KeywordS16 |
+            TokenType::KeywordS32 | TokenType::KeywordS64 |
+            TokenType::KeywordF32 | TokenType::KeywordF64 |
+            TokenType::KeywordUsize | TokenType::KeywordUnit |
+            TokenType::KeywordBool => {
+                let nt: NodeType = match self.current.t {
+                    TokenType::KeywordU8 => NodeType::U8Type,
+                    TokenType::KeywordU16 => NodeType::U16Type,
+                    TokenType::KeywordU32 => NodeType::U32Type,
+                    TokenType::KeywordU64 => NodeType::U64Type,
+                    TokenType::KeywordS8 => NodeType::S8Type,
+                    TokenType::KeywordS16 => NodeType::S16Type,
+                    TokenType::KeywordS32 => NodeType::S32Type,
+                    TokenType::KeywordS64 => NodeType::S64Type,
+                    TokenType::KeywordF32 => NodeType::F32Type,
+                    TokenType::KeywordF64 => NodeType::F64Type,
+                    TokenType::KeywordUsize => NodeType::UsizeType,
+                    TokenType::KeywordUnit => NodeType::UnitType,
+                    TokenType::KeywordBool => NodeType::BoolType,
+                    _ => unreachable!()
+                };
+                self.next();
+                return Ok(AstNode::new(
+                    nt, start, NodeValue::None, NodeChildren::None
+                ));
+            }
+            TokenType::KeywordFun => {
+                todo!()
+            }
+            TokenType::Identifier => {
+                todo!()
+            }
+            _ => {
+                todo!()
+            }
+        }
     }
 
 }
