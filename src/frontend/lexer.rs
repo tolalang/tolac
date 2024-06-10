@@ -32,7 +32,7 @@ pub enum TokenType {
     KeywordTrue, KeywordFalse, KeywordUnit,
     KeywordU8, KeywordU16, KeywordU32, KeywordU64,
     KeywordS8, KeywordS16, KeywordS32, KeywordS64,
-    KeywordF32, KeywordF64, KeywordUsize
+    KeywordF32, KeywordF64, KeywordUsize, KeywordBool
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -193,6 +193,7 @@ impl Lexer {
                 "f32" => return self.build(c, TokenType::KeywordF32),
                 "f64" => return self.build(c, TokenType::KeywordF64),
                 "usize" => return self.build(c, TokenType::KeywordUsize),
+                "bool" => return self.build(c, TokenType::KeywordBool),
                 _ => return self.build(c, TokenType::Identifier)
             }
         }

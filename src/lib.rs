@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use lexer::Lexer;
 
 mod error;
 pub use error::*;
 
 mod source; 
+use parser::{AstNode, Parser};
 pub use source::*;
 
 mod strings;
@@ -31,12 +33,8 @@ impl Compiler {
     pub fn parse(&mut self, path: &str, content: String) {
         let path_i: StringIdx = self.strings.insert(path);
         self.files.insert(path_i, content.clone());
-        let mut lexer: Lexer = Lexer::new(path_i, content);
-        // this is for testing
-        loop {
-            let t: Token = lexer.next(self);
-            if t.t == TokenType::EndOfFile { break; }
-            println!("{}", self.strings.get(t.content));
-        }
+        let lexer: Lexer = Lexer::new(path_i, content);
+        let mut parser: Parser = Parser::new(self, lexer);
+        let nodes: Vec<AstNode> = parser.parse_file();
     }
 }
