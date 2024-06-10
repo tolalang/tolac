@@ -312,7 +312,10 @@ impl Lexer {
                 escaped = false;
             } else {
                 escaped = self.current() == '\\';
-                self.consume();
+                if !escaped {
+                    self.buffer.push(self.current());
+                }
+                self.skip();
             }
         }
         if self.current() != '"' {
