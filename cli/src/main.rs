@@ -1,14 +1,9 @@
-use tolac::{Compiler, Error, Source};
+use tolac::{Compiler, Error};
 
 fn main() {
     let mut c: Compiler = Compiler::new();
     c.parse("test.tola", String::from("\
-fun main(argc c::sint, argv **c::char) {
-    var my_cat Cat = Cat(c\"Cookie\\nballs\\u{1F602}\", 5, 0.5);
-    my_cat.feed();
-    lmfao?lol
-    this is | funny
-}
+mod std::math; var x u32 = 10;
 "));
     for err in c.errors.drain(..).collect::<Vec<Error>>() {
         print!("{}", err.display(&c, true));

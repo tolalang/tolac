@@ -42,6 +42,19 @@ pub struct Token {
     pub source: Source
 }
 
+impl Token {
+    pub fn display(&self, c: &Compiler) -> String {
+        return match self.t {
+            TokenType::EndOfFile => String::from("end of file"),
+            TokenType::Invalid => String::from("invalid character"),
+            TokenType::String |
+            TokenType::CString => String::from("string literal"),
+            _ => format!("'{}'", c.strings.get(self.content))
+        };
+    }
+}
+
+
 #[derive(Debug)]
 pub struct Lexer {
     path: StringIdx,

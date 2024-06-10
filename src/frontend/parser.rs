@@ -1,8 +1,9 @@
-use crate::Compiler;
-use crate::lexer::{Lexer, Token};
+use crate::{Compiler, Error, PathIdx, Source, StringIdx};
+use crate::lexer::{Lexer, Token, TokenType};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum NodeType {
+    Invalid,
     // statements
     ModuleDecl,
     UsageDecl,
@@ -40,33 +41,246 @@ pub enum NodeType {
 }
 
 #[derive(Debug, Clone)]
+pub enum NodeValue {
+    None,
+    String(StringIdx),
+    Path(PathIdx)
+}
+
+#[derive(Debug, Clone)]
 pub enum NodeChildren {
+    None,
     Single(Box<AstNode>),
     Pair(Box<AstNode>, Box<AstNode>),
-    Triple(Box<AstNode>, Box<AstNode>, Box<AstNode>),
     List(Vec<AstNode>)
 }
 
 #[derive(Debug, Clone)]
 pub struct AstNode {
     pub t: NodeType,
-    pub value: Option<String>,
+    pub source: Source,
+    pub value: NodeValue,
     pub children: NodeChildren
 }
+
+impl AstNode {
+    pub fn new(
+        t: NodeType, source: Source, value: NodeValue, children: NodeChildren
+    ) -> AstNode {
+        return AstNode { t, source, value, children };
+    }
+}
+
 
 pub struct Parser<'c> {
     comp: &'c mut Compiler,
     lexer: Lexer,
+    last: Option<Token>,
     current: Token
 }
 
 impl<'c> Parser<'c> {
     pub fn new(comp: &'c mut Compiler, mut lexer: Lexer) -> Parser<'c> {
         let current: Token = lexer.next(comp);
-        return Parser { comp, lexer, current };
+        return Parser { comp, lexer, last: None, current };
+    }
+
+    fn next(&mut self) {
+        self.last = Some(self.current);
+        self.current = self.lexer.next(self.comp);
+    }
+
+    fn report_unexpected(&mut self) {
+        let e: String = format!(
+            "unexpected {}{}",
+            self.current.display(self.comp),
+            self.last.map(|t| 
+                format!(" after {}", t.display(self.comp))
+            ).unwrap_or_else(|| String::from(""))
+        );
+        let s: Source = if self.current.t == TokenType::EndOfFile {
+            self.last.unwrap_or(self.current).source
+        } else { self.current.source };
+        self.comp.errors.push(Error::dynamic(e, s));
+        loop {
+            let recovered: bool = match self.current.t {
+                TokenType::Semicolon |
+                TokenType::BraceClose |
+                TokenType::EndOfFile => true,
+                _ => false
+            };
+            if recovered { break; }
+            self.next();
+        }
+    }
+
+    fn expect(&mut self, tt: &[TokenType]) -> Result<(), ()> {
+        if tt.contains(&self.current.t) {
+            return Ok(());
+        }
+        self.report_unexpected();
+        return Err(());
+    }
+
+    fn expect_not(&mut self, tt: &[TokenType]) -> Result<(), ()> {
+        if !tt.contains(&self.current.t) {
+            return Ok(());
+        }
+        self.report_unexpected();
+        return Err(());
     }
 
     pub fn parse_file(&mut self) -> Vec<AstNode> {
+        return self.parse_block(true);
+    }
+
+    fn parse_block(&mut self, global: bool) -> Vec<AstNode> {
+        let mut nodes: Vec<AstNode> = Vec::new();
+        loop {
+            while self.current.t == TokenType::Semicolon {
+                self.next();
+            }
+            let end: bool = match self.current.t {
+                TokenType::BraceClose |
+                TokenType::EndOfFile => true,
+                _ => false
+            };
+            if end { break; }
+            if let Ok(n) = self.parse_statement(global) {
+                nodes.push(n);
+            }
+        }
+        return nodes;
+    }
+
+    fn parse_path(&mut self) -> Result<PathIdx, ()> {
+        let mut p: Vec<StringIdx> = Vec::new();
+        self.expect(&[TokenType::Identifier])?;
+        p.push(self.current.content);
+        self.next();
+        while self.current.t == TokenType::DoubleColon {
+            self.next();
+            self.expect(&[TokenType::Identifier])?;
+            p.push(self.current.content);
+            self.next();
+        }
+        return Ok(self.comp.paths.insert(&p));
+    }
+
+    fn parse_statement(&mut self, global: bool) -> Result<AstNode, ()> {
+        let start: Source = self.current.source;
+        let is_public: bool = self.current.t == TokenType::KeywordPub;
+        if is_public {
+            self.next();
+            self.expect(&[
+                TokenType::KeywordStruct, TokenType::KeywordEnum,
+                TokenType::KeywordInterface, TokenType::KeywordFun,
+                TokenType::KeywordVar, TokenType::KeywordConst,
+                TokenType::KeywordExt
+            ])?;
+        }
+        let is_external: bool = self.current.t == TokenType::KeywordExt;
+        if is_external {
+            self.next();
+            self.expect(&[
+                TokenType::KeywordFun,
+                TokenType::KeywordVar, TokenType::KeywordConst
+            ])?;
+        }
+        if global {
+            self.expect(&[
+                TokenType::KeywordMod, TokenType::KeywordUse,
+                TokenType::KeywordStruct, TokenType::KeywordEnum,
+                TokenType::KeywordInterface, TokenType::KeywordFun,
+                TokenType::KeywordVar, TokenType::KeywordConst
+            ])?;
+        } else {
+            self.expect_not(&[
+                TokenType::KeywordMod, TokenType::KeywordUse,
+                TokenType::KeywordStruct, TokenType::KeywordEnum,
+                TokenType::KeywordInterface, TokenType::KeywordFun
+            ])?;
+        }
+        match self.current.t {
+            TokenType::KeywordMod => {
+                self.next();
+                let name: PathIdx = self.parse_path()?;
+                return Ok(AstNode::new(
+                    NodeType::ModuleDecl,
+                    Source::across(
+                        start, 
+                        self.last.expect("cannot be the first token").source
+                    ),
+                    NodeValue::Path(name),
+                    NodeChildren::None
+                ));
+            }
+            TokenType::KeywordUse => {
+                todo!()
+            }
+            TokenType::KeywordStruct => {
+                todo!()
+            }
+            TokenType::KeywordEnum => {
+                todo!()
+            }
+            TokenType::KeywordInterface => {
+                todo!()
+            }
+            TokenType::KeywordFun => {
+                todo!()
+            }
+            TokenType::KeywordVar => {
+                self.next();
+                self.expect(&[TokenType::Identifier])?;
+                let name: StringIdx = self.current.content;
+                self.next();
+                let value_type: AstNode = self.parse_type()?;
+                self.expect(&[TokenType::Equal])?;
+                self.next();
+                let value: AstNode = self.parse_expression()?;
+                return Ok(AstNode::new(
+                    NodeType::VariableDecl,
+                    Source::across(start, value.source),
+                    NodeValue::String(name),
+                    NodeChildren::Pair(value_type.into(), value.into())
+                ));
+            }
+            TokenType::KeywordConst => {
+                todo!()
+            }
+            TokenType::KeywordReturn => {
+                todo!()
+            }
+            TokenType::KeywordContinue => {
+                self.next();
+                return Ok(AstNode::new(
+                    NodeType::Continue,
+                    start,
+                    NodeValue::None, NodeChildren::None
+                ));
+            }
+            TokenType::KeywordBreak => {
+                todo!()
+            }
+            TokenType::KeywordIf => {
+                todo!()
+            }
+            TokenType::KeywordLoop => {
+                todo!()
+            }
+            _ => {
+                todo!()
+            }
+        }
+    }
+
+    fn parse_expression(&mut self) -> Result<AstNode, ()> {
         todo!()
     }
+
+    fn parse_type(&mut self) -> Result<AstNode, ()> {
+        todo!()
+    }
+
 }
