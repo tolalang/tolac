@@ -1,4 +1,4 @@
-use tolac::Compiler;
+use tolac::{Compiler, Error};
 
 fn main() {
     let mut c: Compiler = Compiler::new();
@@ -6,7 +6,11 @@ fn main() {
 fun main(argc c::sint, argv **c::char) {
     var my_cat Cat = Cat(c\"Cookie\", 5, 0.5);
     my_cat.feed();
+    lmfao?lol
+    this is | funny
 }
 "));
-    println!("ERRORS: {:?}", c.errors);
+    for err in c.errors.drain(..).collect::<Vec<Error>>() {
+        print!("{}", err.display(&c, true));
+    }
 }
