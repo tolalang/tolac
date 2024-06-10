@@ -335,7 +335,7 @@ impl Lexer {
     pub fn next(&mut self, c: &mut Compiler) -> Token {
         let mut current: Token = self.next_raw(c);
         while match current.t {
-            TokenType::Invalid | TokenType::Comment | TokenType::Whitespace => true,
+            TokenType::Comment | TokenType::Whitespace => true,
             _ => false
         } {
             current = self.next_raw(c); 
