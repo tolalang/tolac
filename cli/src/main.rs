@@ -1,4 +1,4 @@
-use tolac::{Compiler, Error};
+use tolac::{Compiler, Error, Source};
 
 fn main() {
     let mut c: Compiler = Compiler::new();

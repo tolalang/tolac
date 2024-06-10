@@ -242,9 +242,8 @@ impl Lexer {
         }
         self.consume();
         c.errors.push(Error::dynamic(
-            String::from("invalid character"),
-            Source::new(self.path, self.start, self.pos),
-            format!("'{}' is not a valid character", self.buffer)
+            format!("'{}' is not a valid character", self.buffer),
+            Source::new(self.path, self.start, self.pos)
         ));
         return self.build(c, TokenType::Invalid);
     }
@@ -284,9 +283,8 @@ impl Lexer {
                         }
                         if self.current() != '}' {
                             c.errors.push(Error::fixed(
-                                "unclosed unicode codepoint sequence",
-                                Source::new(self.path, seq_start, self.pos),
-                                "this literal is opened here, but never closed"
+                                "unicode codepoint sequence is never closed",
+                                Source::new(self.path, seq_start, self.pos)
                             ));
                         }
                         self.skip();
@@ -304,10 +302,6 @@ impl Lexer {
                                 "invalid unicode codepoint sequence",
                                 Source::new(
                                     self.path, cp_start, self.pos - 1
-                                ),
-                                concat!(
-                                    "these characters must only be hex digits",
-                                    " that represent a valid unicode codepoint"
                                 )
                             ));
                             self.buffer.push('�');
@@ -323,9 +317,8 @@ impl Lexer {
         }
         if self.current() != '"' {
             c.errors.push(Error::fixed(
-                "unclosed string literal",
-                Source::new(self.path, self.start, self.start + 1),
-                "this literal is opened here, but never closed"
+                "string literal is never closed",
+                Source::new(self.path, self.start, self.start + 1)
             ));
         }
         self.skip();
