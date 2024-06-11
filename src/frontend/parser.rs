@@ -4,6 +4,7 @@ use crate::lexer::{Lexer, Token, TokenType};
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum NodeType {
     Invalid,
+    Block,
     // statements
     ModuleDecl,
     UsageDecl,
@@ -289,7 +290,56 @@ impl<'c> Parser<'c> {
                 ));
             }
             TokenType::KeywordIf => {
-                todo!()
+                self.next();
+                let mut children: Vec<AstNode> = Vec::new();
+                children.push(self.parse_expression()?);
+                self.expect(&[TokenType::BraceOpen])?;
+                let if_start: Source = self.current.source;
+                self.next();
+                let if_body: Vec<AstNode> = self.parse_block(false);
+                self.expect(&[TokenType::BraceClose])?;
+                children.push(AstNode::new(
+                    NodeType::Block, 
+                    Source::across(if_start, self.current.source), 
+                    NodeValue::None, 
+                    NodeChildren::List(if_body)
+                ));
+                self.next();
+                if self.current.t == TokenType::KeywordElse {
+                    self.next();
+                    self.expect(&[TokenType::KeywordIf, TokenType::BraceOpen])?;
+                    let else_start: Source;
+                    let else_body: Vec<AstNode>;
+                    let else_end: Source;
+                    if self.current.t == TokenType::KeywordIf {
+                        else_start = self.current.source;
+                        else_body = vec![self.parse_statement(false)?];
+                        else_end = self.last
+                            .expect("cannot be the first token").source;
+                    } else {
+                        else_start = self.current.source;
+                        self.next();
+                        else_body = self.parse_block(false);
+                        self.expect(&[TokenType::BraceClose])?;
+                        else_end = self.current.source;
+                        self.next();
+                    }
+                    children.push(AstNode::new(
+                        NodeType::Block, 
+                        Source::across(else_start, else_end), 
+                        NodeValue::None, 
+                        NodeChildren::List(else_body)
+                    ));
+                }
+                return Ok(AstNode::new(
+                    NodeType::If,
+                    Source::across(
+                        start, 
+                        self.last.expect("cannot be the first token").source
+                    ),
+                    NodeValue::None,
+                    NodeChildren::List(children)
+                ));
             }
             TokenType::KeywordLoop => {
                 todo!()
