@@ -41,6 +41,6 @@ impl Compiler {
         let lexer: Lexer = Lexer::new(path_i, content);
         let mut parser: Parser = Parser::new(self, lexer);
         let nodes: Vec<AstNode> = parser.parse_file();
-        println!("{:?}", nodes);
+        println!("{:#?}", nodes); 
     }
 }

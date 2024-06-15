@@ -147,7 +147,7 @@ impl<'c> Parser<'c> {
         self.current = self.lexer.next(self.comp);
     }
 
-    fn report_unexpected(&mut self) {
+    fn report_unexpected(&mut self) -> AstNode {
         let e: String = format!(
             "unexpected {}{}",
             self.current.display(self.comp),
@@ -169,29 +169,31 @@ impl<'c> Parser<'c> {
             if recovered { break; }
             self.next();
         }
+        return AstNode::new(
+            NodeType::Invalid, self.current.source,
+            NodeValue::None, Vec::new()
+        );
     }
 
-    fn expect(&mut self, tt: &[TokenType]) -> Result<(), ()> {
+    fn expect(&mut self, tt: &[TokenType]) -> Result<(), AstNode> {
         if tt.contains(&self.current.t) {
             return Ok(());
         }
-        self.report_unexpected();
-        return Err(());
+        return Err(self.report_unexpected());
     }
 
-    fn expect_not(&mut self, tt: &[TokenType]) -> Result<(), ()> {
+    fn expect_not(&mut self, tt: &[TokenType]) -> Result<(), AstNode> {
         if !tt.contains(&self.current.t) {
             return Ok(());
         }
-        self.report_unexpected();
-        return Err(());
+        return Err(self.report_unexpected());
     }
 
     pub fn parse_file(&mut self) -> Vec<AstNode> {
-        return self.parse_block(true);
+        return self.parse_statements(true);
     }
 
-    fn parse_block(&mut self, global: bool) -> Vec<AstNode> {
+    fn parse_statements(&mut self, global: bool) -> Vec<AstNode> {
         let mut nodes: Vec<AstNode> = Vec::new();
         loop {
             while self.current.t == TokenType::Semicolon {
@@ -203,14 +205,14 @@ impl<'c> Parser<'c> {
                 _ => false
             };
             if end { break; }
-            if let Ok(n) = self.parse_statement(global) {
-                nodes.push(n);
+            match self.parse_statement(global) {
+                Ok(n) | Err(n) => nodes.push(n)
             }
         }
         return nodes;
     }
 
-    fn parse_path(&mut self) -> Result<PathIdx, ()> {
+    fn parse_path(&mut self) -> Result<PathIdx, AstNode> {
         let mut p: Vec<StringIdx> = Vec::new();
         self.expect(&[TokenType::Identifier])?;
         p.push(self.current.content);
@@ -224,7 +226,126 @@ impl<'c> Parser<'c> {
         return Ok(self.comp.paths.insert(&p));
     }
 
-    fn parse_statement(&mut self, global: bool) -> Result<AstNode, ()> {
+    fn parse_t_args_def(&mut self) -> Result<AstNode, AstNode> {
+        if self.current.t != TokenType::BracketOpen {
+            return Ok(AstNode::new(
+                NodeType::ArgumentList, self.current.source,
+                NodeValue::None, Vec::new()
+            ));
+        }
+        let start: Source = self.current.source;
+        self.next();
+        let mut args: Vec<AstNode> = Vec::new();
+        while self.current.t != TokenType::BracketClose {
+            self.expect(&[TokenType::Identifier])?;
+            args.push(AstNode::new(
+                NodeType::Argument, self.current.source,
+                NodeValue::String(self.current.content),
+                Vec::new()
+            ));
+            self.next();
+            self.expect(&[
+                TokenType::Comma, TokenType::BracketClose
+            ])?;
+            if self.current.t == TokenType::Comma {
+                self.next();
+            }
+        }
+        let end: Source = self.current.source;
+        self.next();
+        return Ok(AstNode::new(
+            NodeType::ArgumentList, Source::across(start, end),
+            NodeValue::None, args
+        ));
+    }
+
+    fn parse_args_def(&mut self) -> Result<AstNode, AstNode> {
+        self.expect(&[TokenType::ParenOpen])?;
+        let start: Source = self.current.source;
+        self.next();
+        let mut args: Vec<AstNode> = Vec::new();
+        while self.current.t != TokenType::ParenClose {
+            let mut arg_children: Vec<AstNode> = Vec::new();
+            let arg_start: Source = self.current.source;
+            if self.current.t == TokenType::KeywordConst {
+                arg_children.push(AstNode::empty(
+                    NodeType::IsConstant, self.current.source,
+                ));
+                self.next();
+            }
+            self.expect(&[TokenType::Identifier])?;
+            let arg_name: StringIdx = self.current.content;
+            self.next();
+            let arg_type: AstNode = self.parse_type()?;
+            let arg_end: Source = arg_type.source;
+            arg_children.push(arg_type);
+            args.push(AstNode::new(
+                NodeType::Argument,
+                Source::across(arg_start, arg_end),
+                NodeValue::String(arg_name),
+                arg_children
+            ));
+            self.expect(&[TokenType::Comma, TokenType::ParenClose])?;
+            if self.current.t == TokenType::Comma {
+                self.next();
+            }
+        }
+        let end: Source = self.current.source;
+        self.next();
+        return Ok(AstNode::new(
+            NodeType::ArgumentList,
+            Source::across(start, end),
+            NodeValue::None,
+            args
+        ));
+    }
+
+    fn parse_block(&mut self) -> Result<AstNode, AstNode> {
+        self.expect(&[TokenType::BraceOpen])?;
+        let start: Source = self.current.source;
+        self.next();
+        let body: Vec<AstNode> = self.parse_statements(false);
+        self.expect(&[TokenType::BraceClose])?;
+        let end: Source = self.current.source;
+        self.next();
+        return Ok(AstNode::new(
+            NodeType::Block, 
+            Source::across(start, end),
+            NodeValue::None,
+            body
+        ));
+    }
+
+    fn parse_t_args(&mut self) -> Result<AstNode, AstNode> {
+        if self.current.t != TokenType::BracketOpen {
+            return Ok(AstNode::new(
+                NodeType::ArgumentList, self.current.source,
+                NodeValue::None, Vec::new()
+            ));
+        }
+        let start: Source = self.current.source;
+        self.next();
+        let mut args: Vec<AstNode> = Vec::new();
+        while self.current.t != TokenType::BracketClose {
+            args.push(self.parse_type()?);
+            self.expect(&[
+                TokenType::Comma, TokenType::BracketClose
+            ])?;
+            if self.current.t == TokenType::Comma {
+                self.next();
+            }
+        }
+        let end: Source = self.current.source;
+        self.next();
+        return Ok(AstNode::new(
+            NodeType::ArgumentList,
+            Source::across(start, end),
+            NodeValue::None,
+            args
+        ));
+    }
+
+    fn parse_statement(&mut self, global: bool) -> Result<AstNode, AstNode> {
         let start: Source = self.current.source;
         let is_public: bool = self.current.t == TokenType::KeywordPub;
         if is_public {
@@ -300,89 +421,15 @@ impl<'c> Parser<'c> {
                 self.expect(&[TokenType::Identifier])?;
                 let name: StringIdx = self.current.content;
                 self.next();
-                let mut t_args: Vec<AstNode> = Vec::new();
-                let t_args_start: Source = self.current.source;
-                let mut t_args_end: Source = self.current.source;
-                if self.current.t == TokenType::BracketOpen {
-                    self.next();
-                    while self.current.t != TokenType::BracketClose {
-                        self.expect(&[TokenType::Identifier])?;
-                        t_args.push(AstNode::new(
-                            NodeType::Argument, self.current.source,
-                            NodeValue::String(self.current.content),
-                            Vec::new()
-                        ));
-                        self.next();
-                        self.expect(&[
-                            TokenType::Comma, TokenType::BracketClose
-                        ])?;
-                        if self.current.t == TokenType::Comma {
-                            self.next();
-                        }
-                    }
-                    t_args_end = self.current.source;
-                    self.next();
-                }
-                children.push(AstNode::new(
-                    NodeType::ArgumentList,
-                    Source::across(t_args_start, t_args_end),
-                    NodeValue::None,
-                    t_args
-                ));
-                self.expect(&[TokenType::ParenOpen])?;
-                self.next();
-                let mut args: Vec<AstNode> = Vec::new();
-                let args_start: Source = self.current.source;
-                while self.current.t != TokenType::ParenClose {
-                    let mut arg_children: Vec<AstNode> = Vec::new();
-                    let arg_start: Source = self.current.source;
-                    if self.current.t == TokenType::KeywordConst {
-                        arg_children.push(AstNode::empty(
-                            NodeType::IsConstant, self.current.source,
-                        ));
-                        self.next();
-                    }
-                    self.expect(&[TokenType::Identifier])?;
-                    let arg_name: StringIdx = self.current.content;
-                    self.next();
-                    let arg_type: AstNode = self.parse_type()?;
-                    let arg_end: Source = arg_type.source;
-                    arg_children.push(arg_type);
-                    args.push(AstNode::new(
-                        NodeType::Argument,
-                        Source::across(arg_start, arg_end),
-                        NodeValue::String(arg_name),
-                        arg_children
-                    ));
-                    self.expect(&[TokenType::Comma, TokenType::ParenClose])?;
-                    if self.current.t == TokenType::Comma {
-                        self.next();
-                    }
-                }
-                children.push(AstNode::new(
-                    NodeType::ArgumentList,
-                    Source::across(args_start, self.current.source),
-                    NodeValue::None,
-                    args
-                ));
-                self.next();
+                children.push(self.parse_t_args_def()?);
+                children.push(self.parse_args_def()?);
                 if self.current.t == TokenType::Colon {
                     self.next();
                     children.push(self.parse_type()?);
                 }
-                self.expect(&[TokenType::BraceOpen])?;
-                let body_start: Source = self.current.source;
-                self.next();
-                let body: Vec<AstNode> = self.parse_block(false);
-                self.expect(&[TokenType::BraceClose])?;
-                children.push(AstNode::new(
-                    NodeType::Block, 
-                    Source::across(body_start, self.current.source),
-                    NodeValue::None,
-                    body
-                ));
-                let end: Source = self.current.source;
-                self.next();
+                let body: AstNode = self.parse_block()?;
+                let end: Source = body.source;
+                children.push(body);
                 return Ok(AstNode::new(
                     NodeType::FunctionDecl,
                     Source::across(start, end),
@@ -397,7 +444,7 @@ impl<'c> Parser<'c> {
                 self.next();
                 let value_type: AstNode = self.parse_type()?;
                 let mut end: Source = value_type.source;
-                let mut children: Vec<AstNode> = vec![value_type];
+                let mut children: Vec<AstNode> = vec!(value_type);
                 if self.current.t == TokenType::Equal {
                     self.next();
                     let value: AstNode = self.parse_full_expression()?;
@@ -418,13 +465,13 @@ impl<'c> Parser<'c> {
                 self.next();
                 let value_type: AstNode = self.parse_type()?;
                 let mut end: Source = value_type.source;
-                let mut children: Vec<AstNode> = vec![
+                let mut children: Vec<AstNode> = vec!(
                     AstNode::new(
                         NodeType::IsConstant, start,
                         NodeValue::None, Vec::new()
                     ),
                     value_type
-                ];
+                );
                 if self.current.t == TokenType::Equal {
                     self.next();
                     let value: AstNode = self.parse_full_expression()?;
@@ -445,7 +492,7 @@ impl<'c> Parser<'c> {
                     NodeType::Return,
                     Source::across(start, returned.source),
                     NodeValue::None,
-                    vec![returned]
+                    vec!(returned)
                 ));
             }
             TokenType::KeywordContinue => {
@@ -468,51 +515,31 @@ impl<'c> Parser<'c> {
                 self.next();
                 let mut children: Vec<AstNode> = Vec::new();
                 children.push(self.parse_full_expression()?);
-                self.expect(&[TokenType::BraceOpen])?;
-                let if_start: Source = self.current.source;
-                self.next();
-                let if_body: Vec<AstNode> = self.parse_block(false);
-                self.expect(&[TokenType::BraceClose])?;
-                children.push(AstNode::new(
-                    NodeType::Block, 
-                    Source::across(if_start, self.current.source), 
-                    NodeValue::None, 
-                    if_body
-                ));
-                self.next();
+                children.push(self.parse_block()?);
                 if self.current.t == TokenType::KeywordElse {
                     self.next();
                     self.expect(&[TokenType::KeywordIf, TokenType::BraceOpen])?;
-                    let else_start: Source;
-                    let else_body: Vec<AstNode>;
-                    let else_end: Source;
-                    if self.current.t == TokenType::KeywordIf {
-                        else_start = self.current.source;
-                        else_body = vec![self.parse_statement(false)?];
-                        else_end = self.last
-                            .expect("cannot be the first token").source;
+                    if self.current.t == TokenType::BraceOpen {
+                        children.push(self.parse_block()?);
                     } else {
-                        else_start = self.current.source;
-                        self.next();
-                        else_body = self.parse_block(false);
-                        self.expect(&[TokenType::BraceClose])?;
-                        else_end = self.current.source;
-                        self.next();
+                        let else_st: AstNode = self.parse_statement(false)?;
+                        children.push(AstNode::new(
+                            NodeType::Block, else_st.source,
+                            NodeValue::None, vec!(else_st)
+                        ));
                     }
-                    children.push(AstNode::new(
+                } else {
+                    children.push(AstNode::empty(
                         NodeType::Block, 
-                        Source::across(else_start, else_end), 
-                        NodeValue::None, 
-                        else_body
+                        self.last.expect("cannot be first").source
                     ));
                 }
                 return Ok(AstNode::new(
-                    NodeType::If,
+                    NodeType::If, 
                     Source::across(
-                        start, 
-                        self.last.expect("cannot be the first token").source
-                    ),
-                    NodeValue::None,
+                        start, self.last.expect("cannot be first").source
+                    ), 
+                    NodeValue::None, 
                     children
                 ));
             }
@@ -528,7 +555,7 @@ impl<'c> Parser<'c> {
                         NodeType::Assign,
                         Source::across(start, value.source),
                         NodeValue::None,
-                        vec![expr, value]
+                        vec!(expr, value)
                     )); 
                 }
                 return Ok(expr);
@@ -536,11 +563,13 @@ impl<'c> Parser<'c> {
         }
     }
 
-    fn parse_full_expression(&mut self) -> Result<AstNode, ()> {
+    fn parse_full_expression(&mut self) -> Result<AstNode, AstNode> {
         return self.parse_expression(usize::MAX);
     }
 
-    fn parse_expression(&mut self, precedence: usize) -> Result<AstNode, ()> {
+    fn parse_expression(
+        &mut self, precedence: usize
+    ) -> Result<AstNode, AstNode> {
         let mut previous: Option<AstNode> = None;
         loop {
             let start: Source = self.current.source;
@@ -575,7 +604,17 @@ impl<'c> Parser<'c> {
             // prefix operators and literals
             match self.current.t {
                 TokenType::Identifier => {
-                    todo!("reassign result to 'previous'")
+                    let name: StringIdx = self.current.content;
+                    self.next();
+                    let t_args: AstNode = self.parse_t_args()?;
+                    previous = Some(AstNode::new(
+                        NodeType::NamespaceAccess, 
+                        Source::across(
+                            start, self.last.expect("cannot be first").source
+                        ),
+                        NodeValue::String(name),
+                        vec!(t_args)
+                    )); 
                 }
                 TokenType::KeywordUnit => {
                     self.next();
@@ -585,7 +624,14 @@ impl<'c> Parser<'c> {
                     ));
                 }
                 TokenType::KeywordSizeof => {
-                    todo!("reassign result to 'previous'")
+                    self.next();
+                    let sized_type: AstNode = self.parse_type()?;
+                    previous = Some(AstNode::new(
+                        NodeType::SizeOf, 
+                        Source::across(start, sized_type.source),
+                        NodeValue::None,
+                        vec!(sized_type)
+                    ));
                 }
                 TokenType::KeywordTrue | TokenType::KeywordFalse |
                 TokenType::Integer | TokenType::Float |
@@ -609,17 +655,40 @@ impl<'c> Parser<'c> {
                 TokenType::Asterisk |
                 TokenType::ExclamationMark |
                 TokenType::Minus => {
-                    todo!("reassign result to 'previous'")
+                    let nt: NodeType = match self.current.t {
+                        TokenType::Ampersand => NodeType::AddressOf,
+                        TokenType::Asterisk => NodeType::Deref,
+                        TokenType::ExclamationMark => NodeType::LogicalNot,
+                        TokenType::Minus => NodeType::Negate,
+                        _ => unreachable!()
+                    };
+                    let pr: usize = match self.current.t {
+                        TokenType::Ampersand => PREC_ADDRESS_OF,
+                        TokenType::Asterisk => PREC_DEREF,
+                        TokenType::ExclamationMark => PREC_NOT,
+                        TokenType::Minus => PREC_NEGATE,
+                        _ => unreachable!()
+                    };
+                    self.next();
+                    let value: AstNode = self.parse_expression(pr)?;
+                    previous = Some(AstNode::new(
+                        nt, Source::across(start, value.source),
+                        NodeValue::None, vec!(value)
+                    ));
                 }
                 TokenType::ParenOpen => {
-                    todo!("reassign result to 'previous'")
+                    self.next();
+                    let content: AstNode = self.parse_full_expression()?;
+                    self.expect(&[TokenType::ParenClose])?;
+                    self.next();
+                    previous = Some(content);
                 }
                 _ => return Err(self.report_unexpected())
             }
         }
     }
 
-    fn parse_type(&mut self) -> Result<AstNode, ()> {
+    fn parse_type(&mut self) -> Result<AstNode, AstNode> {
         let start: Source = self.current.source;
         match self.current.t {
             TokenType::Asterisk => {
@@ -674,34 +743,15 @@ impl<'c> Parser<'c> {
             }
             TokenType::Identifier => {
                 let name: StringIdx = self.current.content;
-                let mut t_args: Vec<AstNode> = Vec::new();
-                let mut t_args_start: Source = self.current.source;
-                let mut t_args_end: Source = self.current.source;
                 self.next();
-                if self.current.t == TokenType::BracketOpen {
-                    t_args_start = self.current.source;
-                    self.next();
-                    while self.current.t != TokenType::BracketClose {
-                        t_args.push(self.parse_type()?);
-                        self.expect(&[
-                            TokenType::Comma, TokenType::BracketClose
-                        ])?;
-                        if self.current.t == TokenType::Comma {
-                            self.next();
-                        }
-                    }
-                    t_args_end = self.current.source;
-                    self.next();
-                }
+                let t_args: AstNode = self.parse_t_args()?;
                 return Ok(AstNode::new(
-                    NodeType::NamespaceAccess, start,
+                    NodeType::NamespaceAccess, 
+                    Source::across(
+                        start, self.last.expect("cannot be first").source
+                    ),
                     NodeValue::String(name),
-                    vec![AstNode::new(
-                        NodeType::ArgumentList,
-                        Source::across(t_args_start, t_args_end),
-                        NodeValue::None,
-                        t_args
-                    )]
+                    vec!(t_args)
                 )); 
             }
             _ => return Err(self.report_unexpected())

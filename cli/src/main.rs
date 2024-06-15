@@ -4,7 +4,13 @@ fn main() {
     let mut c: Compiler = Compiler::new();
     c.parse("test.tola", String::from(r#"
 fun add[T](const a T, const b T): T {
+    if true {
+        var x u32 = 5;
+    } else if "test" {
+   
+    } else {
     
+    }
 }
 "#));
     for err in c.errors.drain(..).collect::<Vec<Error>>() {
