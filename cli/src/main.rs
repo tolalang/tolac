@@ -1,20 +1,18 @@
-use tolac::{Compiler, Error};
+use tolac::Compiler;
 
 fn main() {
-    let mut c: Compiler = Compiler::new();
-    c.parse("test.tola", String::from(r#"
-fun add[T](const a T, const b T): T {
-    if true {
+    let mut comp: Compiler = Compiler::new();
+    comp.parse("test.tola", String::from(r#"
+
+    use std::(arr, vec)::(collect, iter);
+
+    fun main() {
         var x u32 = 5;
-    } else if "test" {
-   
-    } else {
-    
     }
-}
+
 "#));
-    for err in c.errors.drain(..).collect::<Vec<Error>>() {
-        print!("{}", err.display(&c, true));
+    for error in comp.errors() {
+        print!("{}", error.display(&comp, true));
     }
 }
 

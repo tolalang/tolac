@@ -4,8 +4,8 @@ use crate::{Compiler, GridPos, Source};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Error {
-    reason: String,
-    marked: Source
+    pub reason: String,
+    pub marked: Source
 }
 
 impl Error {
@@ -26,7 +26,7 @@ impl Error {
         let style_bold: &'static str = if colored { "\x1b[1m" } else { "" };
         let style_reset: &'static str = if colored { "\x1b[0m" } else { "" };
         let marked: Range<GridPos> = self.marked.compute_grid_pos(c);
-        let file: &str = c.files.get(&self.marked.file)
+        let file: &str = c.file_contents.get(&self.marked.file)
             .expect("file not found!");
         let mut r: String = String::new();
         r.push_str(c.strings.get(self.marked.file));

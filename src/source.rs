@@ -32,7 +32,7 @@ impl Source {
     }
 
     pub fn compute_grid_pos(&self, c: &Compiler) -> Range<GridPos> {
-        let file: &str = c.files.get(&self.file)
+        let file: &str = c.file_contents.get(&self.file)
             .expect("source file must be valid");
         let mut pos: usize = 0;
         let mut curr: GridPos = GridPos::new(0, 0);
