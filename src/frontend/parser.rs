@@ -1,95 +1,4 @@
-use crate::{Compiler, Error, PathIdx, Source, StringIdx};
-use crate::lexer::{Lexer, Token, TokenType};
-use std::fmt;
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum NodeType {
-    // meta or used in structure of other nodes
-    Invalid,
-    IsPublic,
-    IsExternal,
-    IsConstant,
-    Block,
-    ArgumentList,
-    ArgumentDecl,
-    UsedPath,
-    // statements
-    ModuleDecl,
-    UsageDecl,
-    StructDecl,
-    EnumDecl,
-    InterfaceDecl,
-    FunctionDecl,
-    VariableDecl,
-    Return,
-    Continue,
-    Break,
-    If,
-    Loop,
-    While,
-    Assign, AssignAdd, AssignSubtract, AssignMultiply, AssignDivide, AssignRemainder,
-    // expressions
-    NamespaceAccess,
-    VariableAccess,
-    Call,
-    IntegerLiteral, FloatLiteral, StringLiteral, 
-    CStringLiteral, UnitLiteral, BooleanLiteral,
-    MemberAccess,
-    TypeCast, SizeOf,
-    AddressOf, Deref,
-    Add, Subtract, Multiply, Divide, Remainder, Negate,
-    LessThan, GreaterThan, LessThanEqual, GreaterThanEqual, Equal, NotEqual,
-    LogicalNot, LogicalAnd, LogicalOr,
-    // types
-    PointerType, FunctionPointerType,
-    U8Type, U16Type, U32Type, U64Type,
-    S8Type, S16Type, S32Type, S64Type,
-    F32Type, F64Type, 
-    UnitType, 
-    UsizeType,
-    BoolType
-}
-
-#[derive(Debug, Clone)]
-pub enum NodeValue {
-    None,
-    String(StringIdx),
-    Path(PathIdx)
-}
-
-#[derive(Clone)]
-pub struct AstNode {
-    pub t: NodeType,
-    pub source: Source,
-    pub value: NodeValue,
-    pub children: Vec<AstNode>
-}
-
-impl AstNode {
-    pub fn new(
-        t: NodeType, source: Source, value: NodeValue, children: Vec<AstNode>
-    ) -> AstNode {
-        return AstNode { t, source, value, children };
-    }
-
-    pub fn empty(t: NodeType, source: Source) -> AstNode {
-        return AstNode {
-            t, source, 
-            value: NodeValue::None, children: Vec::new() 
-        };
-    }
-}
-
-impl fmt::Debug for AstNode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("")
-            .field(&self.t)
-            .field(&self.value)
-            .field(&self.children)
-            .finish()
-    }
-}
-
+use crate::*;
 
 const PREC_NONE: usize = 0;
 const PREC_NEGATE: usize = 2;
@@ -388,7 +297,7 @@ impl<'c> Parser<'c> {
     fn parse_statement(&mut self, global: bool) -> Result<AstNode, AstNode> {
         let start: Source = self.current.source;
         let is_public: bool = self.current.t == TokenType::KeywordPub;
-        if is_public {
+        if is_public && global {
             self.next();
             self.expect(&[
                 TokenType::KeywordStruct, TokenType::KeywordEnum,
@@ -398,7 +307,8 @@ impl<'c> Parser<'c> {
             ])?;
         }
         let is_external: bool = self.current.t == TokenType::KeywordExt;
-        if is_external {
+        let is_exported: bool = self.current.t == TokenType::KeywordExp;
+        if (is_external || is_exported) && global {
             self.next();
             self.expect(&[
                 TokenType::KeywordFun,
@@ -500,6 +410,11 @@ impl<'c> Parser<'c> {
                         NodeType::IsExternal, self.current.source
                     ));
                 }
+                if is_exported {
+                    children.push(AstNode::empty(
+                        NodeType::IsExported, self.current.source
+                    ));
+                }
                 self.next();
                 self.expect(&[TokenType::Identifier])?;
                 let name: StringIdx = self.current.content;
@@ -525,13 +440,29 @@ impl<'c> Parser<'c> {
                 ));
             }
             TokenType::KeywordVar => {
+                let mut children: Vec<AstNode> = Vec::new();
+                if is_public {
+                    children.push(AstNode::empty(
+                        NodeType::IsPublic, self.current.source
+                    ));
+                }
+                if is_external {
+                    children.push(AstNode::empty(
+                        NodeType::IsExternal, self.current.source
+                    ));
+                }
+                if is_exported {
+                    children.push(AstNode::empty(
+                        NodeType::IsExported, self.current.source
+                    ));
+                }
                 self.next();
                 self.expect(&[TokenType::Identifier])?;
                 let name: StringIdx = self.current.content;
                 self.next();
                 let value_type: AstNode = self.parse_type()?;
                 let mut end: Source = value_type.source;
-                let mut children: Vec<AstNode> = vec!(value_type);
+                children.push(value_type);
                 if self.current.t == TokenType::Equal {
                     self.next();
                     let value: AstNode = self.parse_full_expression()?;
@@ -546,19 +477,33 @@ impl<'c> Parser<'c> {
                 ));
             }
             TokenType::KeywordConst => {
+                let mut children: Vec<AstNode> = Vec::new();
+                if is_public {
+                    children.push(AstNode::empty(
+                        NodeType::IsPublic, self.current.source
+                    ));
+                }
+                if is_external {
+                    children.push(AstNode::empty(
+                        NodeType::IsExternal, self.current.source
+                    ));
+                }
+                if is_exported {
+                    children.push(AstNode::empty(
+                        NodeType::IsExported, self.current.source
+                    ));
+                }
                 self.next();
                 self.expect(&[TokenType::Identifier])?;
                 let name: StringIdx = self.current.content;
                 self.next();
                 let value_type: AstNode = self.parse_type()?;
                 let mut end: Source = value_type.source;
-                let mut children: Vec<AstNode> = vec!(
-                    AstNode::new(
-                        NodeType::IsConstant, start,
-                        NodeValue::None, Vec::new()
-                    ),
-                    value_type
-                );
+                children.push(AstNode::new(
+                    NodeType::IsConstant, start,
+                    NodeValue::None, Vec::new()
+                ));
+                children.push(value_type);
                 if self.current.t == TokenType::Equal {
                     self.next();
                     let value: AstNode = self.parse_full_expression()?;

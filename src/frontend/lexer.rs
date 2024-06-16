@@ -23,7 +23,7 @@ pub enum TokenType {
     Comma, Semicolon,
     Dot,
     Ampersand,
-    KeywordPub, KeywordExt, KeywordMod, KeywordUse,
+    KeywordPub, KeywordExt, KeywordExp, KeywordMod, KeywordUse,
     KeywordStruct, KeywordFun, KeywordVar, KeywordEnum, KeywordInterface,
     KeywordIf, KeywordElse, KeywordLoop, KeywordWhile,
     KeywordReturn, KeywordContinue, KeywordBreak,
@@ -176,6 +176,7 @@ impl Lexer {
             match self.buffer.as_str() {
                 "pub" => return self.build(c, TokenType::KeywordPub),
                 "ext" => return self.build(c, TokenType::KeywordExt),
+                "exp" => return self.build(c, TokenType::KeywordExp),
                 "mod" => return self.build(c, TokenType::KeywordMod),
                 "use" => return self.build(c, TokenType::KeywordUse),
                 "struct" => return self.build(c, TokenType::KeywordStruct),

@@ -1,4 +1,12 @@
 
-pub mod lexer;
+mod lexer;
+pub use lexer::*;
 
-pub mod parser;
+mod parser;
+pub use parser::*;
+
+mod ast;
+pub use ast::*;
+
+mod symbols;
+pub use symbols::*;

@@ -1,9 +1,19 @@
 use std::collections::HashMap;
 
-use crate::StringIdx;
+use crate::{Compiler, StringIdx};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct PathIdx(usize);
+
+impl PathIdx {
+    pub fn display(&self, c: &Compiler) -> String {
+        return c.paths.get(*self)
+            .iter().map(|s| c.strings.get(*s).to_string())
+            .collect::<Vec<String>>()
+            .join("::");
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub struct PathMap {
