@@ -4,15 +4,15 @@ fn main() {
     let mut comp: Compiler = Compiler::new();
     comp.parse("test.tola", String::from(r#"
 
-mod foo;
+var x u8;
+var y u8 = 5;
+ext var z u8;
+ext var w u8 = 5;
 
-pub exp fun test(a u32, b u32): u32 {
-    return a + b;
-}
-
-mod bar;
-
-pub exp const test u32 = 69;
+fun a();
+fun b() {}
+ext fun c();
+ext fun d() {}
 
 "#));
     comp.check_types();

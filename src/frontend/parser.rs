@@ -429,12 +429,14 @@ impl<'c> Parser<'c> {
                         AstNode::empty(NodeType::UnitType, self.current.source)
                     )
                 }
-                let body: AstNode = self.parse_block()?;
-                let end: Source = body.source;
-                children.push(body);
+                if !is_external {
+                    children.push(self.parse_block()?);
+                }
                 return Ok(AstNode::new(
                     NodeType::FunctionDecl,
-                    Source::across(start, end),
+                    Source::across(
+                        start, self.last.expect("cannot be first").source
+                    ),
                     NodeValue::String(name),
                     children
                 ));
@@ -463,7 +465,9 @@ impl<'c> Parser<'c> {
                 let value_type: AstNode = self.parse_type()?;
                 let mut end: Source = value_type.source;
                 children.push(value_type);
-                if self.current.t == TokenType::Equal {
+                if (self.current.t == TokenType::Equal || global)
+                        && !is_external {
+                    self.expect(&[TokenType::Equal])?;
                     self.next();
                     let value: AstNode = self.parse_full_expression()?;
                     end = value.source;
@@ -504,7 +508,9 @@ impl<'c> Parser<'c> {
                     NodeValue::None, Vec::new()
                 ));
                 children.push(value_type);
-                if self.current.t == TokenType::Equal {
+                if (self.current.t == TokenType::Equal || global)
+                        && !is_external {
+                    self.expect(&[TokenType::Equal])?;
                     self.next();
                     let value: AstNode = self.parse_full_expression()?;
                     end = value.source;
