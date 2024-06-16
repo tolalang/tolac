@@ -6,13 +6,13 @@ fn main() {
 
 mod foo;
 
-fun add(a u32, b u32): u32 {
+pub exp fun test(a u32, b u32): u32 {
     return a + b;
 }
 
-fun add(a s32, b s32): s32 {
-    return a + b;
-}
+mod bar;
+
+pub exp const test u32 = 69;
 
 "#));
     comp.check_types();

@@ -303,7 +303,7 @@ impl<'c> Parser<'c> {
                 TokenType::KeywordStruct, TokenType::KeywordEnum,
                 TokenType::KeywordInterface, TokenType::KeywordFun,
                 TokenType::KeywordVar, TokenType::KeywordConst,
-                TokenType::KeywordExt
+                TokenType::KeywordExt, TokenType::KeywordExp
             ])?;
         }
         let is_external: bool = self.current.t == TokenType::KeywordExt;
