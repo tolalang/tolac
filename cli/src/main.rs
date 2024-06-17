@@ -4,15 +4,9 @@ fn main() {
     let mut comp: Compiler = Compiler::new();
     comp.parse("test.tola", String::from(r#"
 
-var x u8;
-var y u8 = 5;
-ext var z u8;
-ext var w u8 = 5;
-
-fun a();
-fun b() {}
-ext fun c();
-ext fun d() {}
+pub exp fun add[T](a T, b T): T {
+    return a + b;
+}
 
 "#));
     comp.check_types();

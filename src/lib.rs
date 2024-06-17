@@ -80,10 +80,10 @@ impl Compiler {
         for nodes in parsed_nodes {
             symbols.insert_file(&nodes, self);
         }
-        if self.errors.len() > 0 { return; }
         self.symbols = symbols;
-        // expand templates and usages here 
-        // if self.errors.len() > 0 { return; }
+        if self.errors.len() > 0 { return; }
+        monomorphize(self);
+        if self.errors.len() > 0 { return; }
         // type check here
         // if self.errors.len() > 0 { return; }
     }

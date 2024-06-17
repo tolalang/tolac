@@ -419,7 +419,20 @@ impl<'c> Parser<'c> {
                 self.expect(&[TokenType::Identifier])?;
                 let name: StringIdx = self.current.content;
                 self.next();
-                children.push(self.parse_t_args_def()?);
+                let t_args: AstNode = self.parse_t_args_def()?;
+                if is_exported && t_args.children.len() > 0 {
+                    self.comp.errors.push(Error::dynamic(
+                        format!(
+                            concat!(
+                                "'{}' is exported and may therefore not ",
+                                "specify any template arguments"
+                            ),
+                            self.comp.strings.get(name)
+                        ), 
+                        t_args.source
+                    ))
+                }
+                children.push(t_args);
                 children.push(self.parse_args_def()?);
                 if self.current.t == TokenType::Colon {
                     self.next();
