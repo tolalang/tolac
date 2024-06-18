@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::slice::Iter;
 
 mod error;
@@ -26,7 +25,7 @@ pub struct Compiler {
     pub(crate) strings: StringMap,
     pub(crate) paths: PathMap,
     pub(crate) file_contents: HashMap<StringIdx, String>,
-    parsed_files: HashMap<StringIdx, Vec<Rc<AstNode>>>,
+    parsed_files: HashMap<StringIdx, Vec<AstNode>>,
     pub symbols: SymbolTable,
     pub(crate) errors: Vec<Error>,
     error_stage: usize
@@ -59,8 +58,7 @@ impl Compiler {
         self.file_contents.insert(path_i, content.clone());
         let lexer: Lexer = Lexer::new(path_i, content);
         let mut parser: Parser = Parser::new(self, lexer);
-        let nodes: Vec<Rc<AstNode>> = parser.parse_file()
-            .into_iter().map(Rc::new).collect();
+        let nodes: Vec<AstNode> = parser.parse_file();
         self.parsed_files.insert(path_i, nodes);
     }
 
@@ -74,16 +72,15 @@ impl Compiler {
         }
         self.error_stage = ERR_TYPES;
         self.errors.clear();
-        let parsed_nodes: Vec<Vec<Rc<AstNode>>> = self
-            .parsed_files.values().map(|f| f.clone()).collect();
+        let parsed_nodes: Vec<Vec<AstNode>> = self
+            .parsed_files.values().cloned().collect();
         let mut symbols: SymbolTable = SymbolTable::new();
         for nodes in parsed_nodes {
             symbols.insert_file(&nodes, self);
         }
         self.symbols = symbols;
         if self.errors.len() > 0 { return; }
-        monomorphize(self);
-        if self.errors.len() > 0 { return; }
+        expand_paths(self);
         // type check here
         // if self.errors.len() > 0 { return; }
     }

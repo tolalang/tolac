@@ -11,5 +11,5 @@ pub use ast::*;
 mod symbols;
 pub use symbols::*;
 
-mod monomorphization;
-pub use monomorphization::*;
+mod path_exp;
+pub use path_exp::*;

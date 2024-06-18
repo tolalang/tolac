@@ -1,17 +1,17 @@
-use std::{collections::{HashMap, HashSet}, rc::Rc};
+use std::collections::{HashMap, HashSet};
 
 use crate::{AstNode, Compiler, Error, NodeType, NodeValue, PathIdx, StringIdx};
 
 
 #[derive(Debug, Clone)]
 pub struct Symbol {
-    is_public: bool,
-    decl_node: Rc<AstNode>,
-    monomorphized_nodes: HashMap<Vec<AstNode>, AstNode>
+    pub(crate) is_public: bool,
+    pub(crate) decl_node: AstNode,
+    pub(crate) monomorphized_nodes: HashMap<Vec<AstNode>, AstNode>
 }
 
 impl Symbol {
-    pub fn from_decl_node(node: Rc<AstNode>) -> Symbol {
+    pub fn from_decl_node(node: AstNode) -> Symbol {
         return Symbol {
             is_public: node.children.iter()
                 .find(|n| n.t == NodeType::IsPublic)
@@ -41,9 +41,12 @@ impl SymbolTable {
 
     pub fn modules(&self) -> &HashSet<PathIdx> { &self.modules }
     pub fn symbols(&self) -> &HashMap<PathIdx, Symbol> { &self.symbols }
+    pub(crate) fn symbols_mut(&mut self) -> &mut HashMap<PathIdx, Symbol> { 
+        &mut self.symbols
+    }
     pub fn unmangled(&self) -> &HashMap<StringIdx, PathIdx> { &self.unmangled }
 
-    pub fn insert_file(&mut self, nodes: &[Rc<AstNode>], c: &mut Compiler) {
+    pub fn insert_file(&mut self, nodes: &[AstNode], c: &mut Compiler) {
         let mut curr_mod: PathIdx = c.paths.insert(&[]);
         for node in nodes {
             match (node.t, node.value) {
@@ -90,7 +93,7 @@ impl SymbolTable {
                         ));
                     }
                     self.symbols.insert(
-                        full_path, Symbol::from_decl_node(Rc::clone(node))
+                        full_path, Symbol::from_decl_node(node.clone())
                     );
                 }
                 _ => unreachable!("node must be valid")

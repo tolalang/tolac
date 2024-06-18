@@ -4,8 +4,19 @@ fn main() {
     let mut comp: Compiler = Compiler::new();
     comp.parse("test.tola", String::from(r#"
 
-pub exp fun add[T](a T, b T): T {
-    return a + b;
+mod foo;
+
+fun add(a u32, b u32): u32 {
+
+}
+
+
+mod bar;
+
+use foo::*;
+
+fun main() {
+    add();
 }
 
 "#));

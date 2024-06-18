@@ -50,14 +50,14 @@ pub enum NodeType {
     BoolType
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum NodeValue {
     None,
     String(StringIdx),
     Path(PathIdx)
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct AstNode {
     pub t: NodeType,
     pub source: Source,

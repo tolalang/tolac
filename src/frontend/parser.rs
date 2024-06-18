@@ -149,6 +149,7 @@ impl<'c> Parser<'c> {
         }
         let start: Source = self.current.source;
         self.next();
+        self.expect_not(&[TokenType::BracketClose])?;
         let mut args: Vec<AstNode> = Vec::new();
         while self.current.t != TokenType::BracketClose {
             self.expect(&[TokenType::Identifier])?;
@@ -233,6 +234,7 @@ impl<'c> Parser<'c> {
         }
         let start: Source = self.current.source;
         self.next();
+        self.expect_not(&[TokenType::BracketClose])?;
         let mut args: Vec<AstNode> = Vec::new();
         while self.current.t != TokenType::BracketClose {
             args.push(self.parse_type()?);
@@ -759,15 +761,14 @@ impl<'c> Parser<'c> {
             // prefix operators and literals
             match self.current.t {
                 TokenType::Identifier => {
-                    let name: StringIdx = self.current.content;
-                    self.next();
+                    let accessed: PathIdx = self.parse_path()?;
                     let t_args: AstNode = self.parse_t_args()?;
                     previous = Some(AstNode::new(
                         NodeType::NamespaceAccess, 
                         Source::across(
                             start, self.last.expect("cannot be first").source
                         ),
-                        NodeValue::String(name),
+                        NodeValue::Path(accessed),
                         vec!(t_args)
                     )); 
                 }
@@ -895,15 +896,14 @@ impl<'c> Parser<'c> {
                 todo!()
             }
             TokenType::Identifier => {
-                let name: StringIdx = self.current.content;
-                self.next();
+                let path: PathIdx = self.parse_path()?;
                 let t_args: AstNode = self.parse_t_args()?;
                 return Ok(AstNode::new(
                     NodeType::NamespaceAccess, 
                     Source::across(
                         start, self.last.expect("cannot be first").source
                     ),
-                    NodeValue::String(name),
+                    NodeValue::Path(path),
                     vec!(t_args)
                 )); 
             }
