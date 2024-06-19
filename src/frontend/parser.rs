@@ -74,14 +74,13 @@ impl<'c> Parser<'c> {
             self.comp.errors.push(Error::dynamic(e, s));
         }
         loop {
-            let recovered: bool = match self.current.t {
+            self.next();
+            match self.current.t {
                 TokenType::Semicolon |
                 TokenType::BraceClose |
-                TokenType::EndOfFile => true,
-                _ => false
+                TokenType::EndOfFile => break,
+                _ => {}
             };
-            self.next();
-            if recovered { break; }
         }
         return AstNode::new(
             NodeType::Invalid, self.current.source,
@@ -118,9 +117,18 @@ impl<'c> Parser<'c> {
                 TokenType::EndOfFile => break,
                 _ => {}
             };
-            match self.parse_statement(global) {
-                Ok(n) | Err(n) => nodes.push(n)
+            let s: AstNode = self.parse_statement(global).unwrap_or_else(|n| n);
+            match s.t {
+                NodeType::EnumDecl | NodeType::InterfaceDecl |
+                NodeType::If | NodeType::Loop | NodeType::While => {}
+                NodeType::FunctionDecl if s.children
+                    .iter().find(|c| c.t == NodeType::Block)
+                    .is_some() => {}
+                _ => {
+                    let _ = self.expect(&[TokenType::Semicolon]);
+                }
             }
+            nodes.push(s);
         }
         return nodes;
     }
