@@ -119,13 +119,19 @@ impl<'c> Parser<'c> {
             };
             let s: AstNode = self.parse_statement(global).unwrap_or_else(|n| n);
             match s.t {
+                NodeType::Invalid |
                 NodeType::EnumDecl | NodeType::InterfaceDecl |
                 NodeType::If | NodeType::Loop | NodeType::While => {}
                 NodeType::FunctionDecl if s.children
                     .iter().find(|c| c.t == NodeType::Block)
                     .is_some() => {}
                 _ => {
-                    let _ = self.expect(&[TokenType::Semicolon]);
+                    if self.current.t != TokenType::Semicolon {
+                        self.comp.errors.push(Error::fixed(
+                            "missing semicolon after statement",
+                            s.source
+                        ));
+                    }
                 }
             }
             nodes.push(s);

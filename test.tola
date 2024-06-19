@@ -6,23 +6,6 @@ fun main() {
     const y u16 = 2
 }
 
-fun add(const x *const u32, const y *const u32): u32 {
-    return *x + *y;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ext fun add(x s32, y s32): s32
 
 
