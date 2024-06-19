@@ -111,9 +111,6 @@ fn expand_node_paths(
                 .get(rel_accessed_path);
             let is_local_var: bool = rel_accessed_segs.len() == 1
                 && v.contains(&rel_accessed_segs[0]);
-            if is_local_var {
-                println!("{} = <local>", rel_accessed_path.display(c));
-            }
             if !is_local_var {
                 let alias: StringIdx = *rel_accessed_segs
                     .last().expect("has at least one segment");
@@ -126,7 +123,6 @@ fn expand_node_paths(
                 );
                 let accessed_path: PathIdx = c.paths
                     .insert(&accessed_path_segs);
-                println!("{} = {}", rel_accessed_path.display(c), accessed_path.display(c));
                 n.value = NodeValue::Path(accessed_path);
             }
         }

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::slice::Iter;
 
 mod error;
 pub use error::*;
@@ -52,7 +51,7 @@ impl Compiler {
         } else {
             self.errors = self.errors
                 .drain(..)
-                .filter(|e| e.marked.file != path_i)
+                .filter(|e| e.marked.expect("should have src").file != path_i)
                 .collect();
         }
         self.file_contents.insert(path_i, content.clone());
@@ -62,9 +61,7 @@ impl Compiler {
         self.parsed_files.insert(path_i, nodes);
     }
 
-    pub fn errors(&self) -> Iter<Error> {
-        self.errors.iter()
-    }
+    pub fn errors(&self) -> &[Error] { &self.errors }
 
     pub fn check_types(&mut self) {
         if self.error_stage < ERR_TYPES && self.errors.len() > 0 {
