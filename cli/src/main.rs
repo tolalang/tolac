@@ -6,9 +6,8 @@ fn main() {
 
 mod foo;
 
-fun add(a u32, b u32): u32 {
-
-}
+fun x() {}
+fun y() {}
 
 
 mod bar;
@@ -16,7 +15,9 @@ mod bar;
 use foo::*;
 
 fun main() {
-    add();
+    const x u32 = 5;
+    x();
+    y();
 }
 
 "#));

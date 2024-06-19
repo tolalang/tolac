@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{AstNode, Compiler, NodeType, NodeValue, PathIdx, StringIdx};
 
@@ -64,7 +64,9 @@ fn expand_file_paths(c: &mut Compiler, file: &[AstNode]) {
                         .get_mut(&full_path).expect("should still exist!")
                         .decl_node
                 );
-                expand_node_paths(c, &curr_use, &mut decl_node);
+                expand_node_paths(
+                    c, &curr_use, &mut HashSet::new(), &mut decl_node
+                );
                 std::mem::swap(
                     &mut decl_node,
                     &mut c.symbols.symbols_mut()
@@ -78,25 +80,59 @@ fn expand_file_paths(c: &mut Compiler, file: &[AstNode]) {
 }
 
 fn expand_node_paths(
-    c: &mut Compiler, u: &HashMap<StringIdx, PathIdx>, n: &mut AstNode
+    c: &mut Compiler, 
+    u: &HashMap<StringIdx, PathIdx>,
+    v: &mut HashSet<StringIdx>,
+    n: &mut AstNode
 ) {
+    let mut cv: HashSet<StringIdx> = v.clone();
     match (n.t, n.value) {
-        (NodeType::NamespaceAccess, NodeValue::Path(rel_accessed_path)) => {
-            let alias: StringIdx = *c.paths.get(rel_accessed_path)
-                .last().expect("has at least one segment");
-            let mut accessed_path_segs: Vec<StringIdx> = Vec::new();
-            accessed_path_segs.extend_from_slice(
-                u.get(&alias).map(|p| c.paths.get(*p)).unwrap_or(&[alias])
-            );
-            accessed_path_segs.extend_from_slice(
-                &c.paths.get(rel_accessed_path)[1..]
-            );
-            let accessed_path: PathIdx = c.paths.insert(&accessed_path_segs);
-            n.value = NodeValue::Path(accessed_path);
+        (NodeType::FunctionDecl, _) => {
+            n.children
+                .iter().filter(|c| c.t == NodeType::ArgumentList)
+                .skip(1).next().expect("should have arg list")
+                .children
+                .iter().map(|a| {
+                    if let NodeValue::String(name) = a.value { name }
+                    else { unreachable!("should have a value") }
+                })
+                .for_each(|n| {
+                    cv.insert(n);
+                });
         }
         _ => {}
     }
     for child in &mut n.children {
-        expand_node_paths(c, u, child);
+        expand_node_paths(c, u, &mut cv, child);
+    }
+    match (n.t, n.value) {
+        (NodeType::NamespaceAccess, NodeValue::Path(rel_accessed_path)) => {
+            let rel_accessed_segs: &[StringIdx] = c.paths
+                .get(rel_accessed_path);
+            let is_local_var: bool = rel_accessed_segs.len() == 1
+                && v.contains(&rel_accessed_segs[0]);
+            if is_local_var {
+                println!("{} = <local>", rel_accessed_path.display(c));
+            }
+            if !is_local_var {
+                let alias: StringIdx = *rel_accessed_segs
+                    .last().expect("has at least one segment");
+                let mut accessed_path_segs: Vec<StringIdx> = Vec::new();
+                accessed_path_segs.extend_from_slice(
+                    u.get(&alias).map(|p| c.paths.get(*p)).unwrap_or(&[alias])
+                );
+                accessed_path_segs.extend_from_slice(
+                    &rel_accessed_segs[1..]
+                );
+                let accessed_path: PathIdx = c.paths
+                    .insert(&accessed_path_segs);
+                println!("{} = {}", rel_accessed_path.display(c), accessed_path.display(c));
+                n.value = NodeValue::Path(accessed_path);
+            }
+        }
+        (NodeType::VariableDecl, NodeValue::String(name)) => {
+            v.insert(name);
+        }
+        _ => {}
     }
 }

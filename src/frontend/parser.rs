@@ -113,12 +113,11 @@ impl<'c> Parser<'c> {
             while self.current.t == TokenType::Semicolon {
                 self.next();
             }
-            let end: bool = match self.current.t {
+            match self.current.t {
                 TokenType::BraceClose |
-                TokenType::EndOfFile => true,
-                _ => false
+                TokenType::EndOfFile => break,
+                _ => {}
             };
-            if end { break; }
             match self.parse_statement(global) {
                 Ok(n) | Err(n) => nodes.push(n)
             }
