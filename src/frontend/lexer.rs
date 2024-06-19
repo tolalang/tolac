@@ -55,7 +55,7 @@ impl Token {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Lexer {
     path: StringIdx,
     source: String,

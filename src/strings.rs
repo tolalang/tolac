@@ -1,12 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct StringIdx(usize);
 
 #[derive(Debug, Clone)]
 pub struct StringMap {
-    indices: HashMap<Box<str>, StringIdx>,
-    strings: Vec<Box<str>>
+    indices: HashMap<Rc<str>, StringIdx>,
+    strings: Vec<Rc<str>>
 }
 
 impl StringMap {
@@ -20,8 +20,9 @@ impl StringMap {
     pub fn insert(&mut self, string: &str) -> StringIdx {
         if let Some(idx) = self.indices.get(string) { return *idx; }
         let idx = StringIdx(self.strings.len());
-        self.indices.insert(string.into(), idx);
-        self.strings.push(string.into());
+        let string: Rc<str> = string.into();
+        self.indices.insert(Rc::clone(&string), idx);
+        self.strings.push(string);
         return idx;
     }
 

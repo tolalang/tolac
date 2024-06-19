@@ -2,10 +2,10 @@
 mod test;
 
 fun main() {
-    const x u32 = 5
-    const y u16 = 2
+    const x u32 = 5;
+    const y u16 = 2;
 }
 
-ext fun add(x s32, y s32): s32
+ext fun add(x s32, y s32): s32;
 
 

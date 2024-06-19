@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::{PathIdx, Source, StringIdx};
+use crate::{Compiler, PathIdx, ScopeIdx, Source, StringIdx, Type, TypeIdx};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum NodeType {
@@ -41,12 +41,11 @@ pub enum NodeType {
     LessThan, GreaterThan, LessThanEqual, GreaterThanEqual, Equal, NotEqual,
     LogicalNot, LogicalAnd, LogicalOr,
     // types
-    PointerType, FunctionPointerType,
-    U8Type, U16Type, U32Type, U64Type,
+    PointerType,
+    U8Type, U16Type, U32Type, U64Type, UsizeType,
     S8Type, S16Type, S32Type, S64Type,
     F32Type, F64Type, 
     UnitType, 
-    UsizeType,
     BoolType
 }
 
@@ -54,7 +53,8 @@ pub enum NodeType {
 pub enum NodeValue {
     None,
     String(StringIdx),
-    Path(PathIdx)
+    Path(PathIdx),
+    Scope(ScopeIdx)
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -62,21 +62,16 @@ pub struct AstNode {
     pub t: NodeType,
     pub source: Source,
     pub value: NodeValue,
-    pub children: Vec<AstNode>
+    pub children: Vec<AstNode>,
+    pub result_type: TypeIdx
 }
 
 impl AstNode {
     pub fn new(
-        t: NodeType, source: Source, value: NodeValue, children: Vec<AstNode>
+        t: NodeType, source: Source, value: NodeValue, children: Vec<AstNode>,
+        result_type: TypeIdx
     ) -> AstNode {
-        return AstNode { t, source, value, children };
-    }
-
-    pub fn empty(t: NodeType, source: Source) -> AstNode {
-        return AstNode {
-            t, source, 
-            value: NodeValue::None, children: Vec::new() 
-        };
+        return AstNode { t, source, value, children, result_type };
     }
 }
 

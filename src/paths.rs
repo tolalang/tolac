@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{Compiler, StringIdx};
 
@@ -17,8 +17,8 @@ impl PathIdx {
 
 #[derive(Debug, Clone)]
 pub struct PathMap {
-    indices: HashMap<Box<[StringIdx]>, PathIdx>,
-    paths: Vec<Box<[StringIdx]>>
+    indices: HashMap<Rc<[StringIdx]>, PathIdx>,
+    paths: Vec<Rc<[StringIdx]>>
 }
 
 impl PathMap {
@@ -32,8 +32,9 @@ impl PathMap {
     pub fn insert(&mut self, path: &[StringIdx]) -> PathIdx {
         if let Some(idx) = self.indices.get(path) { return *idx; }
         let idx = PathIdx(self.paths.len());
-        self.indices.insert(path.into(), idx);
-        self.paths.push(path.into());
+        let path: Rc<[StringIdx]> = path.into();
+        self.indices.insert(Rc::clone(&path), idx);
+        self.paths.push(path);
         return idx;
     }
 

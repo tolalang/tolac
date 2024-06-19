@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::{AstNode, Compiler, NodeType, NodeValue, PathIdx, StringIdx};
+use crate::{AstNode, Compiler, NodeType, NodeValue, PathIdx, StringIdx, Type};
 
 fn expand_wildcards(c: &mut Compiler, path: PathIdx) -> Vec<PathIdx> {
     let wildcard: StringIdx = c.strings.insert("*");
@@ -55,8 +55,9 @@ fn expand_file_paths(c: &mut Compiler, file: &[AstNode]) {
                     .get(curr_mod).into();
                 full_path_segs.push(name);
                 let full_path: PathIdx = c.paths.insert(&full_path_segs);
-                let mut decl_node: AstNode = AstNode::empty(
-                    NodeType::Invalid, node.source
+                let mut decl_node: AstNode = AstNode::new(
+                    NodeType::Invalid, node.source, NodeValue::None,
+                    Vec::new(), c.types.insert(Type::Unknown)
                 );
                 std::mem::swap(
                     &mut decl_node,

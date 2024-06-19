@@ -12,6 +12,9 @@ pub use strings::*;
 mod paths;
 pub use paths::*;
 
+mod types;
+pub use types::*;
+
 mod frontend;
 pub use frontend::*;
 
@@ -26,6 +29,8 @@ pub struct Compiler {
     pub(crate) file_contents: HashMap<StringIdx, String>,
     parsed_files: HashMap<StringIdx, Vec<AstNode>>,
     pub symbols: SymbolTable,
+    pub types: TypeMap,
+    pub scopes: ScopeMap,
     pub(crate) errors: Vec<Error>,
     error_stage: usize
 }
@@ -38,6 +43,8 @@ impl Compiler {
             file_contents: HashMap::new(),
             parsed_files: HashMap::new(),
             symbols: SymbolTable::new(),
+            types: TypeMap::new(),
+            scopes: ScopeMap::new(),
             errors: Vec::new(),
             error_stage: ERR_PARSING
         };
@@ -78,8 +85,9 @@ impl Compiler {
         self.symbols = symbols;
         if self.errors.len() > 0 { return; }
         expand_paths(self);
-        // type check here
-        // if self.errors.len() > 0 { return; }
+        let mut tc: TypeChecker = TypeChecker::new(self);
+        tc.check_types();
+        if self.errors.len() > 0 { return; }
     }
 
     pub fn generate_output(&mut self) -> Option<()> {

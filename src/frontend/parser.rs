@@ -41,6 +41,7 @@ fn get_infix_precedence(t: TokenType) -> usize {
 }
 
 
+#[derive(Debug)]
 pub struct Parser<'c> {
     comp: &'c mut Compiler,
     lexer: Lexer,
@@ -52,6 +53,26 @@ impl<'c> Parser<'c> {
     pub fn new(comp: &'c mut Compiler, mut lexer: Lexer) -> Parser<'c> {
         let current: Token = lexer.next(comp);
         return Parser { comp, lexer, last: None, current };
+    }
+
+    fn construct_new(
+        &mut self, 
+        t: NodeType, source: Source, value: NodeValue, children: Vec<AstNode>
+    ) -> AstNode {
+        return AstNode::new(
+            t, source, value, children,
+            self.comp.types.insert(Type::Unknown)
+        );
+    }
+
+    fn construct_empty(
+        &mut self, 
+        t: NodeType, source: Source,
+    ) -> AstNode {
+        return AstNode::new(
+            t, source, NodeValue::None, Vec::new(),
+            self.comp.types.insert(Type::Unknown)
+        );
     }
 
     fn next(&mut self) {
@@ -82,7 +103,7 @@ impl<'c> Parser<'c> {
                 _ => {}
             };
         }
-        return AstNode::new(
+        return self.construct_new(
             NodeType::Invalid, self.current.source,
             NodeValue::None, Vec::new()
         );
@@ -155,7 +176,7 @@ impl<'c> Parser<'c> {
 
     fn parse_t_args_def(&mut self) -> Result<AstNode, AstNode> {
         if self.current.t != TokenType::BracketOpen {
-            return Ok(AstNode::new(
+            return Ok(self.construct_new(
                 NodeType::ArgumentList, self.current.source,
                 NodeValue::None, Vec::new()
             ));
@@ -166,7 +187,7 @@ impl<'c> Parser<'c> {
         let mut args: Vec<AstNode> = Vec::new();
         while self.current.t != TokenType::BracketClose {
             self.expect(&[TokenType::Identifier])?;
-            args.push(AstNode::new(
+            args.push(self.construct_new(
                 NodeType::ArgumentDecl, self.current.source,
                 NodeValue::String(self.current.content),
                 Vec::new()
@@ -177,7 +198,7 @@ impl<'c> Parser<'c> {
         }
         let end: Source = self.current.source;
         self.next();
-        return Ok(AstNode::new(
+        return Ok(self.construct_new(
             NodeType::ArgumentList, Source::across(start, end),
             NodeValue::None, args
         ));
@@ -192,7 +213,7 @@ impl<'c> Parser<'c> {
             let mut arg_children: Vec<AstNode> = Vec::new();
             let arg_start: Source = self.current.source;
             if self.current.t == TokenType::KeywordConst {
-                arg_children.push(AstNode::empty(
+                arg_children.push(self.construct_empty(
                     NodeType::IsConstant, self.current.source,
                 ));
                 self.next();
@@ -203,7 +224,7 @@ impl<'c> Parser<'c> {
             let arg_type: AstNode = self.parse_type()?;
             let arg_end: Source = arg_type.source;
             arg_children.push(arg_type);
-            args.push(AstNode::new(
+            args.push(self.construct_new(
                 NodeType::ArgumentDecl,
                 Source::across(arg_start, arg_end),
                 NodeValue::String(arg_name),
@@ -214,7 +235,7 @@ impl<'c> Parser<'c> {
         }
         let end: Source = self.current.source;
         self.next();
-        return Ok(AstNode::new(
+        return Ok(self.construct_new(
             NodeType::ArgumentList,
             Source::across(start, end),
             NodeValue::None,
@@ -230,7 +251,7 @@ impl<'c> Parser<'c> {
         self.expect(&[TokenType::BraceClose])?;
         let end: Source = self.current.source;
         self.next();
-        return Ok(AstNode::new(
+        return Ok(self.construct_new(
             NodeType::Block, 
             Source::across(start, end),
             NodeValue::None,
@@ -240,7 +261,7 @@ impl<'c> Parser<'c> {
 
     fn parse_t_args(&mut self) -> Result<AstNode, AstNode> {
         if self.current.t != TokenType::BracketOpen {
-            return Ok(AstNode::new(
+            return Ok(self.construct_new(
                 NodeType::ArgumentList, self.current.source,
                 NodeValue::None, Vec::new()
             ));
@@ -256,7 +277,7 @@ impl<'c> Parser<'c> {
         }
         let end: Source = self.current.source;
         self.next();
-        return Ok(AstNode::new(
+        return Ok(self.construct_new(
             NodeType::ArgumentList,
             Source::across(start, end),
             NodeValue::None,
@@ -348,7 +369,7 @@ impl<'c> Parser<'c> {
             TokenType::KeywordMod => {
                 self.next();
                 let name: PathIdx = self.parse_path()?;
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::ModuleDecl,
                     Source::across(
                         start, 
@@ -363,13 +384,16 @@ impl<'c> Parser<'c> {
                 let p_source: Source = self.current.source;
                 let children: Vec<AstNode> = self.parse_used_paths()?
                     .iter()
-                    .map(|p| AstNode::new(
-                        NodeType::UsedPath, p_source,
-                        NodeValue::Path(self.comp.paths.insert(p)), 
-                        Vec::new()
-                    ))
+                    .map(|p| {
+                        let p = self.comp.paths.insert(p);
+                        return self.construct_new(
+                            NodeType::UsedPath, p_source,
+                            NodeValue::Path(p), 
+                            Vec::new()
+                        );
+                    })
                     .collect();
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::UsageDecl,
                     Source::across(
                         start, 
@@ -382,7 +406,7 @@ impl<'c> Parser<'c> {
             TokenType::KeywordStruct => {
                 let mut children: Vec<AstNode> = Vec::new();
                 if is_public {
-                    children.push(AstNode::empty(
+                    children.push(self.construct_empty(
                         NodeType::IsPublic, self.current.source
                     ));
                 }
@@ -400,7 +424,7 @@ impl<'c> Parser<'c> {
                         "interface parsing + make 'end' mut and update it"
                     );
                 }
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::StructDecl,
                     Source::across(start, end),
                     NodeValue::String(name),
@@ -416,17 +440,17 @@ impl<'c> Parser<'c> {
             TokenType::KeywordFun => {
                 let mut children: Vec<AstNode> = Vec::new();
                 if is_public {
-                    children.push(AstNode::empty(
+                    children.push(self.construct_empty(
                         NodeType::IsPublic, self.current.source
                     ));
                 }
                 if is_external {
-                    children.push(AstNode::empty(
+                    children.push(self.construct_empty(
                         NodeType::IsExternal, self.current.source
                     ));
                 }
                 if is_exported {
-                    children.push(AstNode::empty(
+                    children.push(self.construct_empty(
                         NodeType::IsExported, self.current.source
                     ));
                 }
@@ -454,13 +478,13 @@ impl<'c> Parser<'c> {
                     children.push(self.parse_type()?);
                 } else {
                     children.push(
-                        AstNode::empty(NodeType::UnitType, self.current.source)
+                        self.construct_empty(NodeType::UnitType, self.current.source)
                     )
                 }
                 if !is_external {
                     children.push(self.parse_block()?);
                 }
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::FunctionDecl,
                     Source::across(
                         start, self.last.expect("cannot be first").source
@@ -472,17 +496,17 @@ impl<'c> Parser<'c> {
             TokenType::KeywordVar => {
                 let mut children: Vec<AstNode> = Vec::new();
                 if is_public {
-                    children.push(AstNode::empty(
+                    children.push(self.construct_empty(
                         NodeType::IsPublic, self.current.source
                     ));
                 }
                 if is_external {
-                    children.push(AstNode::empty(
+                    children.push(self.construct_empty(
                         NodeType::IsExternal, self.current.source
                     ));
                 }
                 if is_exported {
-                    children.push(AstNode::empty(
+                    children.push(self.construct_empty(
                         NodeType::IsExported, self.current.source
                     ));
                 }
@@ -501,7 +525,7 @@ impl<'c> Parser<'c> {
                     end = value.source;
                     children.push(value);
                 }
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::VariableDecl,
                     Source::across(start, end),
                     NodeValue::String(name),
@@ -511,17 +535,17 @@ impl<'c> Parser<'c> {
             TokenType::KeywordConst => {
                 let mut children: Vec<AstNode> = Vec::new();
                 if is_public {
-                    children.push(AstNode::empty(
+                    children.push(self.construct_empty(
                         NodeType::IsPublic, self.current.source
                     ));
                 }
                 if is_external {
-                    children.push(AstNode::empty(
+                    children.push(self.construct_empty(
                         NodeType::IsExternal, self.current.source
                     ));
                 }
                 if is_exported {
-                    children.push(AstNode::empty(
+                    children.push(self.construct_empty(
                         NodeType::IsExported, self.current.source
                     ));
                 }
@@ -531,7 +555,7 @@ impl<'c> Parser<'c> {
                 self.next();
                 let value_type: AstNode = self.parse_type()?;
                 let mut end: Source = value_type.source;
-                children.push(AstNode::new(
+                children.push(self.construct_new(
                     NodeType::IsConstant, start,
                     NodeValue::None, Vec::new()
                 ));
@@ -544,7 +568,7 @@ impl<'c> Parser<'c> {
                     end = value.source;
                     children.push(value);
                 }
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::VariableDecl,
                     Source::across(start, end),
                     NodeValue::String(name),
@@ -554,7 +578,7 @@ impl<'c> Parser<'c> {
             TokenType::KeywordReturn => {
                 self.next();
                 let returned: AstNode = self.parse_full_expression()?;
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::Return,
                     Source::across(start, returned.source),
                     NodeValue::None,
@@ -563,7 +587,7 @@ impl<'c> Parser<'c> {
             }
             TokenType::KeywordContinue => {
                 self.next();
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::Continue,
                     start,
                     NodeValue::None, Vec::new()
@@ -571,7 +595,7 @@ impl<'c> Parser<'c> {
             }
             TokenType::KeywordBreak => {
                 self.next();
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::Break,
                     start,
                     NodeValue::None, Vec::new()
@@ -589,18 +613,18 @@ impl<'c> Parser<'c> {
                         children.push(self.parse_block()?);
                     } else {
                         let else_st: AstNode = self.parse_statement(false)?;
-                        children.push(AstNode::new(
+                        children.push(self.construct_new(
                             NodeType::Block, else_st.source,
                             NodeValue::None, vec!(else_st)
                         ));
                     }
                 } else {
-                    children.push(AstNode::empty(
+                    children.push(self.construct_empty(
                         NodeType::Block, 
                         self.last.expect("cannot be first").source
                     ));
                 }
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::If, 
                     Source::across(
                         start, self.last.expect("cannot be first").source
@@ -612,7 +636,7 @@ impl<'c> Parser<'c> {
             TokenType::KeywordLoop => {
                 self.next();
                 let body: AstNode = self.parse_block()?;
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::Loop, Source::across(start, body.source),
                     NodeValue::None, vec!(body)
                 ));
@@ -621,7 +645,7 @@ impl<'c> Parser<'c> {
                 self.next();
                 let condition: AstNode = self.parse_full_expression()?;
                 let body: AstNode = self.parse_block()?;
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::While, Source::across(start, body.source),
                     NodeValue::None, vec!(condition, body)
                 ));
@@ -644,7 +668,7 @@ impl<'c> Parser<'c> {
                         };
                         self.next();
                         let value: AstNode = self.parse_full_expression()?;
-                        return Ok(AstNode::new(
+                        return Ok(self.construct_new(
                             nt, Source::across(start, value.source),
                             NodeValue::None, vec!(expr, value)
                         )); 
@@ -685,17 +709,15 @@ impl<'c> Parser<'c> {
                         }
                         let end: Source = self.current.source;
                         self.next();
-                        previous = Some(AstNode::new(
+                        let args_node: AstNode = self.construct_new(
+                            NodeType::ArgumentList,
+                            Source::across(start, end), 
+                            NodeValue::None, args
+                        );
+                        previous = Some(self.construct_new(
                             NodeType::Call, Source::across(left.source, end),
                             NodeValue::None,
-                            vec!(
-                                left,
-                                AstNode::new(
-                                    NodeType::ArgumentList,
-                                    Source::across(start, end), 
-                                    NodeValue::None, args
-                                )
-                            )
+                            vec!(left, args_node)
                         ));
                     }
                     TokenType::Dot => {
@@ -704,7 +726,7 @@ impl<'c> Parser<'c> {
                         let name: StringIdx = self.current.content;
                         let end: Source = self.current.source;
                         self.next();
-                        previous = Some(AstNode::new(
+                        previous = Some(self.construct_new(
                             NodeType::MemberAccess,
                             Source::across(left.source, end),
                             NodeValue::String(name),
@@ -714,7 +736,7 @@ impl<'c> Parser<'c> {
                     TokenType::KeywordAs => {
                         self.next();
                         let target_t: AstNode = self.parse_type()?;
-                        previous = Some(AstNode::new(
+                        previous = Some(self.construct_new(
                             NodeType::TypeCast,
                             Source::across(left.source, target_t.source),
                             NodeValue::None,
@@ -762,7 +784,7 @@ impl<'c> Parser<'c> {
                         };
                         self.next();
                         let right: AstNode = self.parse_expression(pr)?;
-                        previous = Some(AstNode::new(
+                        previous = Some(self.construct_new(
                             nt, Source::across(left.source, right.source),
                             NodeValue::None, vec!(left, right)
                         ));
@@ -776,7 +798,7 @@ impl<'c> Parser<'c> {
                 TokenType::Identifier => {
                     let accessed: PathIdx = self.parse_path()?;
                     let t_args: AstNode = self.parse_t_args()?;
-                    previous = Some(AstNode::new(
+                    previous = Some(self.construct_new(
                         NodeType::NamespaceAccess, 
                         Source::across(
                             start, self.last.expect("cannot be first").source
@@ -787,7 +809,7 @@ impl<'c> Parser<'c> {
                 }
                 TokenType::KeywordUnit => {
                     self.next();
-                    previous = Some(AstNode::new(
+                    previous = Some(self.construct_new(
                         NodeType::UnitLiteral, start,
                         NodeValue::None, Vec::new()
                     ));
@@ -795,7 +817,7 @@ impl<'c> Parser<'c> {
                 TokenType::KeywordSizeof => {
                     self.next();
                     let sized_type: AstNode = self.parse_type()?;
-                    previous = Some(AstNode::new(
+                    previous = Some(self.construct_new(
                         NodeType::SizeOf, 
                         Source::across(start, sized_type.source),
                         NodeValue::None,
@@ -816,7 +838,7 @@ impl<'c> Parser<'c> {
                     };
                     let value: StringIdx = self.current.content;
                     self.next();
-                    previous = Some(AstNode::new(
+                    previous = Some(self.construct_new(
                         nt, start, NodeValue::String(value), Vec::new()
                     ));
                 }
@@ -840,7 +862,7 @@ impl<'c> Parser<'c> {
                     };
                     self.next();
                     let value: AstNode = self.parse_expression(pr)?;
-                    previous = Some(AstNode::new(
+                    previous = Some(self.construct_new(
                         nt, Source::across(start, value.source),
                         NodeValue::None, vec!(value)
                     ));
@@ -864,7 +886,7 @@ impl<'c> Parser<'c> {
                 self.next();
                 let mut children: Vec<AstNode> = Vec::new();
                 if self.current.t == TokenType::KeywordConst {
-                    children.push(AstNode::empty(
+                    children.push(self.construct_empty(
                         NodeType::IsConstant, self.current.source
                     ));
                     self.next();
@@ -872,7 +894,7 @@ impl<'c> Parser<'c> {
                 let ptr_type: AstNode = self.parse_type()?;
                 let end: Source = ptr_type.source;
                 children.push(ptr_type);
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::PointerType,
                     Source::across(start, end),
                     NodeValue::None,
@@ -903,7 +925,7 @@ impl<'c> Parser<'c> {
                     _ => unreachable!()
                 };
                 self.next();
-                return Ok(AstNode::empty(nt, start));
+                return Ok(self.construct_empty(nt, start));
             }
             TokenType::KeywordFun => {
                 todo!()
@@ -911,7 +933,7 @@ impl<'c> Parser<'c> {
             TokenType::Identifier => {
                 let path: PathIdx = self.parse_path()?;
                 let t_args: AstNode = self.parse_t_args()?;
-                return Ok(AstNode::new(
+                return Ok(self.construct_new(
                     NodeType::NamespaceAccess, 
                     Source::across(
                         start, self.last.expect("cannot be first").source

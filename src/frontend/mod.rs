@@ -13,3 +13,6 @@ pub use symbols::*;
 
 mod path_exp;
 pub use path_exp::*;
+
+mod type_checking;
+pub use type_checking::*;
