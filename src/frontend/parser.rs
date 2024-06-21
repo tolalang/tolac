@@ -933,7 +933,41 @@ impl<'c> Parser<'c> {
                 return Ok(self.construct_empty(nt, start));
             }
             TokenType::KeywordFun => {
-                todo!()
+                self.next();
+                self.expect(&[TokenType::ParenOpen])?;
+                let args_start: Source = self.current.source;
+                self.next();
+                let mut args: Vec<AstNode> = Vec::new();
+                while self.current.t != TokenType::ParenClose {
+                    args.push(self.parse_type()?);
+                    self.expect(&[TokenType::Comma, TokenType::ParenClose])?;
+                    if self.current.t == TokenType::Comma {
+                        self.next();
+                    }
+                }
+                let args_node: AstNode = self.construct_new(
+                    NodeType::ArgumentList,
+                    Source::across(args_start, self.current.source),
+                    NodeValue::None,
+                    args
+                );
+                self.next();
+                let returned: AstNode = if self.current.t == TokenType::Colon {
+                    self.parse_type()?
+                } else {
+                    self.construct_empty(
+                        NodeType::UnitType, 
+                        Source::across(
+                            start, self.last.expect("cannot be first").source
+                        )
+                    )
+                };
+                return Ok(self.construct_new(
+                    NodeType::FunctionType,
+                    Source::across(start, returned.source), 
+                    NodeValue::None, 
+                    vec!(args_node, returned)
+                ));
             }
             TokenType::Identifier => {
                 let path: PathIdx = self.parse_path()?;

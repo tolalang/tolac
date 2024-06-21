@@ -41,12 +41,13 @@ pub enum NodeType {
     LessThan, GreaterThan, LessThanEqual, GreaterThanEqual, Equal, NotEqual,
     LogicalNot, LogicalAnd, LogicalOr,
     // types
-    PointerType, ReferenceType,
+    PointerType, ReferenceType, 
     U8Type, U16Type, U32Type, U64Type, UsizeType,
     S8Type, S16Type, S32Type, S64Type,
     F32Type, F64Type, 
     UnitType, 
-    BoolType
+    BoolType,
+    FunctionType
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
