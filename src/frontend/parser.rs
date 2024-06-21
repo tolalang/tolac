@@ -882,7 +882,12 @@ impl<'c> Parser<'c> {
     fn parse_type(&mut self) -> Result<AstNode, AstNode> {
         let start: Source = self.current.source;
         match self.current.t {
-            TokenType::Asterisk => {
+            TokenType::Asterisk | TokenType::Ampersand => {
+                let nt: NodeType = match self.current.t {
+                    TokenType::Asterisk => NodeType::PointerType,
+                    TokenType::Ampersand => NodeType::ReferenceType,
+                    _ => unreachable!()
+                };
                 self.next();
                 let mut children: Vec<AstNode> = Vec::new();
                 if self.current.t == TokenType::KeywordConst {
@@ -895,7 +900,7 @@ impl<'c> Parser<'c> {
                 let end: Source = ptr_type.source;
                 children.push(ptr_type);
                 return Ok(self.construct_new(
-                    NodeType::PointerType,
+                    nt,
                     Source::across(start, end),
                     NodeValue::None,
                     children

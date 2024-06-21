@@ -14,6 +14,7 @@ pub enum Type {
     Unit, 
     Boolean,
     Pointer(bool, TypeIdx),
+    Reference(bool, TypeIdx),
     Struct(PathIdx),
 }
 
