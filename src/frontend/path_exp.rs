@@ -107,7 +107,7 @@ fn expand_node_paths(
         expand_node_paths(c, u, &mut cv, child);
     }
     match (n.t, n.value) {
-        (NodeType::NamespaceAccess, NodeValue::Path(rel_accessed_path)) => {
+        (NodeType::PathAccess, NodeValue::Path(rel_accessed_path)) => {
             let rel_accessed_segs: &[StringIdx] = c.paths
                 .get(rel_accessed_path);
             let is_local_var: bool = rel_accessed_segs.len() == 1

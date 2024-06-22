@@ -5,18 +5,27 @@ use crate::{AstNode, Compiler, Error, NodeType, NodeValue, PathIdx, StringIdx};
 
 #[derive(Debug, Clone)]
 pub struct Symbol {
-    pub(crate) is_public: bool,
-    pub(crate) decl_node: AstNode,
-    pub(crate) monomorphized_nodes: HashMap<Vec<AstNode>, AstNode>
+    pub is_public: bool,
+    pub decl_node: AstNode,
+    pub template_args: Vec<StringIdx>,
+    pub monomorphized_nodes: HashMap<Vec<AstNode>, AstNode>
 }
 
 impl Symbol {
     pub fn from_decl_node(node: AstNode) -> Symbol {
+        let template_args: Vec<StringIdx> = node.children.iter()
+            .find(|c| c.t == NodeType::ArgumentList)
+            .map(|l| l.children.iter().map(|a|
+                if let NodeValue::String(n) = a.value { n }
+                else { unreachable!("must have correct template args!") }
+            ).collect())
+            .unwrap_or(Vec::new());
         return Symbol {
             is_public: node.children.iter()
-                .find(|n| n.t == NodeType::IsPublic)
+                .find(|c| c.t == NodeType::IsPublic)
                 .is_some(), 
             decl_node: node,
+            template_args,
             monomorphized_nodes: HashMap::new()
         }
     }

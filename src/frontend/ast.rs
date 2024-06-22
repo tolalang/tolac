@@ -29,7 +29,7 @@ pub enum NodeType {
     While,
     Assign, AssignAdd, AssignSubtract, AssignMultiply, AssignDivide, AssignRemainder,
     // expressions
-    NamespaceAccess,
+    PathAccess,
     VariableAccess,
     Call,
     IntegerLiteral, FloatLiteral, StringLiteral, 
@@ -64,15 +64,15 @@ pub struct AstNode {
     pub source: Source,
     pub value: NodeValue,
     pub children: Vec<AstNode>,
-    pub result_type: TypeIdx
+    pub rtype: TypeIdx
 }
 
 impl AstNode {
     pub fn new(
         t: NodeType, source: Source, value: NodeValue, children: Vec<AstNode>,
-        result_type: TypeIdx
+        rtype: TypeIdx
     ) -> AstNode {
-        return AstNode { t, source, value, children, result_type };
+        return AstNode { t, source, value, children, rtype };
     }
 }
 

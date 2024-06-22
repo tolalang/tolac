@@ -799,7 +799,7 @@ impl<'c> Parser<'c> {
                     let accessed: PathIdx = self.parse_path()?;
                     let t_args: AstNode = self.parse_t_args()?;
                     previous = Some(self.construct_new(
-                        NodeType::NamespaceAccess, 
+                        NodeType::PathAccess, 
                         Source::across(
                             start, self.last.expect("cannot be first").source
                         ),
@@ -973,7 +973,7 @@ impl<'c> Parser<'c> {
                 let path: PathIdx = self.parse_path()?;
                 let t_args: AstNode = self.parse_t_args()?;
                 return Ok(self.construct_new(
-                    NodeType::NamespaceAccess, 
+                    NodeType::PathAccess, 
                     Source::across(
                         start, self.last.expect("cannot be first").source
                     ),
